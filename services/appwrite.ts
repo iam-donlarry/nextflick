@@ -1,5 +1,8 @@
 import { Client, Databases, ID, Query } from "appwrite";
 
+const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!;
+const COLLECTION_ID = process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_ID!;
+
 const client = new Client()
   .setEndpoint("https://nyc.cloud.appwrite.io/v1")
   .setProject(process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID!);
@@ -8,28 +11,26 @@ const database = new Databases(client);
 
 export const updateSearchCount = async (query: string, movie: Movie) => {
   try {
-    // Prefer checking by movie_id (unique per movie)
-    const result = await database.listDocuments(
-      process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!,
-      process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_ID!,
-      [Query.equal("movie_id", movie.id)]
+    
+    const result = await database.listDocuments( DATABASE_ID, COLLECTION_ID, [
+      Query.equal('searchterm', query)]
     );
 
     if (result.documents.length > 0) {
       const existingMovie = result.documents[0];
 
       await database.updateDocument(
-        process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!,
-        process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_ID!,
+        DATABASE_ID,
+        COLLECTION_ID,
         existingMovie.$id,
         {
-          count: (existingMovie.count ?? 0) + 1, // fallback if null
+          count: existingMovie.count + 1 // fallback if null
         }
       );
     } else {
       await database.createDocument(
-        process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID!,
-        process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_ID!,
+        DATABASE_ID,
+        COLLECTION_ID,
         ID.unique(),
         {
           searchterm: query,
@@ -45,3 +46,20 @@ export const updateSearchCount = async (query: string, movie: Movie) => {
     throw error;
   }
 };
+
+
+export const getTrendingMovies = async (): Promise<TrendingMovie[] | undefined> => {
+  try {
+    const result = await database.listDocuments(
+      DATABASE_ID,
+      COLLECTION_ID,
+      [Query.limit(10),
+      Query.orderDesc('count'),
+      ]
+    );
+    return result.documents as unknown as TrendingMovie[];
+  } catch (error) {
+    console.log(error);
+    return undefined;
+  }
+}
